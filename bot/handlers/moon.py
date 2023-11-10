@@ -8,7 +8,6 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 
-
 from bot.states import Moon
 from bot.keyboards import calendar_keyboard
 
@@ -24,28 +23,26 @@ async def moon_handler(message: Message, state: FSMContext) -> Any:
 
 
 @router.message(Moon.location)
-async def datetime_select(message: Message, state: FSMContext, callback: CallbackQuery) -> Any:
+async def datetime_select(message: Message, state: FSMContext) -> Any:
     await state.set_state(Moon.datetime)
     log.warning(pprint.pformat(message.location))
     await state.update_data(name=message.location)
+
+    markup = await calendar_keyboard.create_calendar()
     return message.answer("Выберите дату и время дня рождения:",
-                          reply_markup=calendar_keyboard.create_calendar())
+                          reply_markup=markup)
 
 
-@router.callback_query(F.data == "random_value")
-def inline_handler(update, context):
-    query = update.callback_query
-    print("here")
-    (kind, _, _, _, _) = query.data.split(";")
-    inline_calendar_handler(update, context)
-
-
-def inline_calendar_handler(update, context):
-    selected, date = calendar_keyboard.process_calendar_selection(update, context)
+@router.callback_query(F.data)
+async def inline_handler(callback: CallbackQuery):
+    selected, date = await calendar_keyboard.calendar_selection(callback)
     if selected:
-        context.bot.send_message(chat_id=update.callback_query.from_user.id,
-                                 text="You selected %s" % (date.strftime("%d/%m/%Y")),
-                                 reply_markup=ReplyKeyboardRemove())
+        await callback.message.answer(
+            text="You selected %s" % (date.strftime("%d/%m/%Y")),
+            # reply_markup=ReplyKeyboardRemove()
+        )
+
+
 
 
 @router.message(Moon.datetime)
